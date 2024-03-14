@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import { Test, console } from "forge-std/Test.sol";
-import { TSwapPool } from "../../src/PoolFactory.sol";
-import { ERC20Mock } from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
-import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {Test, console} from "forge-std/Test.sol";
+import {TSwapPool} from "../../src/PoolFactory.sol";
+import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 contract TSwapPoolTest is Test {
     TSwapPool pool;
@@ -91,4 +91,44 @@ contract TSwapPoolTest is Test {
         assertEq(pool.totalSupply(), 0);
         assert(weth.balanceOf(liquidityProvider) + poolToken.balanceOf(liquidityProvider) > 400e18);
     }
+
+
+    function testInvariantBroken() public {
+        vm.startPrank(liquidityProvider);
+        weth.approve(address(pool), 100e18);
+        poolToken.approve(address(pool), 100e18);
+        pool.deposit(100e18, 100e18, 100e18, uint64(block.timestamp));
+        vm.stopPrank();
+
+
+        uint256 outputWeth = 1e17;
+        int256 startingY = int256(weth.balanceOf(address(pool)));
+
+        int256 expectedDeltaY = int256(outputWeth) * - 1;
+
+
+        vm.startPrank(user);
+        // Approve tokens so they can be pulled by the pool during the swap
+        poolToken.approve(address(pool), type(uint256).max);
+        poolToken.mint(user, 100e18);
+        pool.swapExactOutput({inputToken: poolToken, outputToken: weth, outputAmount: outputWeth, deadline: uint64(block.timestamp)});
+        pool.swapExactOutput({inputToken: poolToken, outputToken: weth, outputAmount: outputWeth, deadline: uint64(block.timestamp)});
+        pool.swapExactOutput({inputToken: poolToken, outputToken: weth, outputAmount: outputWeth, deadline: uint64(block.timestamp)});
+        pool.swapExactOutput({inputToken: poolToken, outputToken: weth, outputAmount: outputWeth, deadline: uint64(block.timestamp)});
+        pool.swapExactOutput({inputToken: poolToken, outputToken: weth, outputAmount: outputWeth, deadline: uint64(block.timestamp)});
+        pool.swapExactOutput({inputToken: poolToken, outputToken: weth, outputAmount: outputWeth, deadline: uint64(block.timestamp)});
+        pool.swapExactOutput({inputToken: poolToken, outputToken: weth, outputAmount: outputWeth, deadline: uint64(block.timestamp)});
+        pool.swapExactOutput({inputToken: poolToken, outputToken: weth, outputAmount: outputWeth, deadline: uint64(block.timestamp)});
+        pool.swapExactOutput({inputToken: poolToken, outputToken: weth, outputAmount: outputWeth, deadline: uint64(block.timestamp)});
+        pool.swapExactOutput({inputToken: poolToken, outputToken: weth, outputAmount: outputWeth, deadline: uint64(block.timestamp)});
+        vm.stopPrank();
+
+        // Actual
+        uint256 endingY = weth.balanceOf(address(pool));
+
+        int256 actualDeltaY = int256(endingY) - int256(startingY);
+
+        assertEq(actualDeltaY, expectedDeltaY);
+    }
+
 }
